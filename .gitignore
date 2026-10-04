@@ -1,1 +1,21 @@
-/target
+# Rust
+/target/
+Cargo.lock.workspace
+
+# Local Vector Models
+.fastembed_cache/
+
+# SQLite Database Files
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# Environment Variables
+.env
+
+# OS / Editor Files
+.DS_Store
+.vscode/
+.idea/
