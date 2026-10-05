@@ -9,7 +9,14 @@ use std::str::FromStr;
 pub async fn init_db(database_url: &str) -> anyhow::Result<Pool<Sqlite>> {
     // 1. Register sqlite-vec statically
     unsafe {
-        sqlite3_auto_extension(Some(std::mem::transmute(sqlite3_vec_init as *const ())));
+        sqlite3_auto_extension(Some(std::mem::transmute::<
+            *const (),
+            unsafe extern "C" fn(
+                *mut libsqlite3_sys::sqlite3,
+                *mut *mut i8,
+                *const libsqlite3_sys::sqlite3_api_routines,
+            ) -> i32,
+        >(sqlite3_vec_init as *const ())));
     }
 
     let options = SqliteConnectOptions::from_str(database_url)?.create_if_missing(true);

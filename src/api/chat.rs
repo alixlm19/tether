@@ -92,7 +92,7 @@ pub async fn handle_chat(
     let response = ChatResponse {
         id: format!("chatcmpl-{}", Uuid::now_v7()),
         object: "chat.completion".to_string(),
-        created_at: created_at,
+        created_at,
         model_slug: payload.model_slug,
         choices: vec![ChatChoice {
             index: 0,
