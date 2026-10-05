@@ -24,3 +24,4 @@ tower-http = { version = "0.7.1", features = ["trace", "cors"] }
 libsqlite3-sys = "0.31"
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
+uuid = { version = "1.27.0", features = ["v4", "v7"] }

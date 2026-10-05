@@ -1,48 +1,26 @@
-use fastembed::TextEmbedding;
-use libsqlite3_sys::sqlite3_auto_extension;
-use sqlite_vec::sqlite3_vec_init;
-use sqlx::{
-    Pool, Sqlite,
-    sqlite::{SqliteConnectOptions, SqlitePoolOptions},
+mod api;
+mod db;
+mod embed;
+mod models;
+
+use axum::{
+    Router,
+    routing::{get, post},
 };
-use std::str::FromStr;
+use fastembed::TextEmbedding;
+use sqlx::{Pool, Sqlite};
+use std::sync::Arc;
+use tokio::sync::Mutex;
+use tower_http::trace::TraceLayer;
 use tracing::{Level, info};
 
-async fn init_db(database_url: &str) -> anyhow::Result<Pool<Sqlite>> {
-    // 1. Register sqlite-vec statically
-    unsafe {
-        sqlite3_auto_extension(Some(std::mem::transmute(sqlite3_vec_init as *const ())));
-    }
-
-    let options = SqliteConnectOptions::from_str(database_url)?.create_if_missing(true);
-
-    let pool = SqlitePoolOptions::new()
-        .max_connections(5)
-        .connect_with(options)
-        .await?;
-
-    sqlx::query(
-        "CREATE VIRTUAL TABLE IF NOT EXISTS vec_queries USING vec0(
-            embedding float[384]
-        )",
-    )
-    .execute(&pool)
-    .await?;
-
-    Ok(pool)
-}
-
-fn init_embedder() -> anyhow::Result<TextEmbedding> {
-    // try_new with Default::default() uses a fast, lightweight quantized model.
-    // It automatically downloads and caches the model locally on the first run.
-    let model = TextEmbedding::try_new(Default::default())?;
-    Ok(model)
+pub struct AppState {
+    db: Pool<Sqlite>,
+    embedder: Arc<Mutex<TextEmbedding>>,
 }
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    // Initialize the logging subscriber
-    // Default to INFO level if RUST_LOG environment variable is not set
     tracing_subscriber::fmt()
         .with_max_level(Level::INFO)
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
@@ -51,20 +29,31 @@ async fn main() -> anyhow::Result<()> {
     let db_url = std::env::var("DATABASE_URL").unwrap_or_else(|_| "sqlite:tether.db".to_string());
 
     info!("Initializing Tether...");
-    let _pool = init_db(&db_url).await?;
+    let pool = db::init_db(&db_url).await?;
     info!("Database and sqlite-vec connected.");
 
-    let mut embedder = init_embedder()?;
+    let embedder = embed::init_embedder()?;
     info!("FastEmbed initialized.");
 
-    // Quick test
-    let query = "What is the capital of France?";
-    let embedings = embedder.embed(vec![query], None)?;
+    let shared_state = Arc::new(AppState {
+        db: pool,
+        embedder: Arc::new(Mutex::new(embedder)),
+    });
 
-    info!(
-        dimensions = embedings[0].len(),
-        "Test embedding generated sucessfully."
-    );
+    let app = Router::new()
+        .route("/health", get(health_check))
+        .route("/v1/chat/completions", post(api::chat::handle_chat))
+        .layer(TraceLayer::new_for_http())
+        .with_state(shared_state);
+
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:8080").await?;
+    info!("Tether proxy listening on http://127.0.0.1:8080");
+
+    axum::serve(listener, app).await?;
 
     Ok(())
+}
+
+async fn health_check() -> &'static str {
+    "Tether is running"
 }
