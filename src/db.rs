@@ -30,7 +30,7 @@ pub async fn init_db(database_url: &str) -> anyhow::Result<Pool<Sqlite>> {
         "CREATE TABLE IF NOT EXISTS cache_entries (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_query TEXT NOT NULL,
-            resposne_json TEXT NOT NULL
+            response_json TEXT NOT NULL
         );",
     )
     .execute(&pool)
