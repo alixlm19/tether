@@ -28,3 +28,36 @@ You will need Rust installed along with the `just` command runner and the SQLx C
 cargo install just
 cargo install sqlx-cli --no-default-features --features rustls,sqlite
 ```
+
+### Running Locally
+
+Tether comes with a `Justfile` to simplify common development tasks. The default `DATABASE_URL` is set to `sqlite:tether.db` automatically when using `just`.
+
+To build and run the proxy server:
+
+```bash
+just run
+```
+
+This will start the Axum web server and initialize the local vector database.
+
+### Database Management
+
+Tether uses SQLite. You can use the following `just` commands for database management:
+
+- `just migrate` - Runs pending SQLx migrations.
+- `just revert` - Reverts the last migration.
+- `just console` - Opens the SQLite CLI for `tether.db`.
+
+### Example Usage
+
+Once the server is running, you can test the chat completions proxy endpoint using `curl`:
+
+```bash
+curl -X POST http://localhost:3000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model_slug": "gpt-4o-mini",
+    "messages": [{"role": "user", "content": "Hello!"}]
+  }'
+```
